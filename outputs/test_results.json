@@ -1,0 +1,111 @@
+{
+  "total_tests": 22,
+  "passed_tests": 19,
+  "results": {
+    "phase1": {
+      "status": "\u2705",
+      "tests": [
+        {
+          "name": "CSV exists",
+          "success": true
+        },
+        {
+          "name": "Required columns",
+          "success": true
+        },
+        {
+          "name": "Sufficient rows",
+          "success": true
+        }
+      ]
+    },
+    "phase2": {
+      "status": "\u2705",
+      "tests": [
+        {
+          "name": "Module exists",
+          "success": true
+        },
+        {
+          "name": "Import successful",
+          "success": true
+        },
+        {
+          "name": "BMI calculation",
+          "success": true
+        },
+        {
+          "name": "BMR calculation",
+          "success": true
+        },
+        {
+          "name": "TDEE calculation",
+          "success": true
+        },
+        {
+          "name": "Complete profile",
+          "success": true
+        }
+      ]
+    },
+    "phase3": {
+      "status": "\u274c",
+      "tests": [
+        {
+          "name": "PyTorch",
+          "success": true
+        },
+        {
+          "name": "Transformers",
+          "success": true
+        },
+        {
+          "name": "BitsAndBytes",
+          "success": true
+        },
+        {
+          "name": "PEFT",
+          "success": true
+        },
+        {
+          "name": "Setup script",
+          "success": false
+        }
+      ]
+    },
+    "phase4": {
+      "status": "\u26a0\ufe0f",
+      "tests": [
+        {
+          "name": "Finetuning script",
+          "success": true
+        },
+        {
+          "name": "Finetuned model",
+          "success": false
+        }
+      ]
+    },
+    "phase5": {
+      "status": "\u2705",
+      "tests": [
+        {
+          "name": "Flask",
+          "success": true
+        },
+        {
+          "name": "Flask-CORS",
+          "success": true
+        },
+        {
+          "name": "API script",
+          "success": true
+        },
+        {
+          "name": "Prompt templates",
+          "success": true
+        }
+      ]
+    }
+  }
+}

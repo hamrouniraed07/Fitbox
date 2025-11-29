@@ -1,0 +1,87 @@
+{
+  "total_tests": 17,
+  "passed_tests": 9,
+  "results": {
+    "phase1": {
+      "status": "\u274c",
+      "tests": [
+        {
+          "name": "CSV exists",
+          "success": false
+        }
+      ]
+    },
+    "phase2": {
+      "status": "\u274c",
+      "tests": [
+        {
+          "name": "Module exists",
+          "success": false
+        }
+      ]
+    },
+    "phase3": {
+      "status": "\u274c",
+      "tests": [
+        {
+          "name": "PyTorch",
+          "success": true
+        },
+        {
+          "name": "Transformers",
+          "success": true
+        },
+        {
+          "name": "BitsAndBytes",
+          "success": true
+        },
+        {
+          "name": "PEFT",
+          "success": true
+        },
+        {
+          "name": "Setup script",
+          "success": false
+        }
+      ]
+    },
+    "phase4": {
+      "status": "\u26a0\ufe0f",
+      "tests": [
+        {
+          "name": "Finetuning script",
+          "success": false
+        },
+        {
+          "name": "Finetuned model",
+          "success": true
+        },
+        {
+          "name": "Model files",
+          "success": false
+        }
+      ]
+    },
+    "phase5": {
+      "status": "\u274c",
+      "tests": [
+        {
+          "name": "Flask",
+          "success": true
+        },
+        {
+          "name": "Flask-CORS",
+          "success": true
+        },
+        {
+          "name": "API script",
+          "success": false
+        },
+        {
+          "name": "Prompt templates",
+          "success": false
+        }
+      ]
+    }
+  }
+}

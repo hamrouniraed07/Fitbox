@@ -1,0 +1,21 @@
+torch
+transformers
+bitsandbytes
+accelerate
+peft
+datasets
+flask
+flask-cors
+pandas
+numpy
+matplotlib
+seaborn
+scipy
+pytest
+requests
+sentencepiece
+tokenizers
+python-dotenv
+# Optional / useful (uncomment if needed):
+# scikit-learn
+# jupyter
