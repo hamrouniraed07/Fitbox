@@ -34,7 +34,7 @@ class FitBoxFineTuner:
     
     def __init__(
         self,
-        model_name: str = "microsoft/Phi-3-mini-4k-instruct",
+        model_name: str = "llama3.2:latest",  # Utilisé avec Ollama local
         output_dir: str = "models/fitbox_model"
     ):
         """

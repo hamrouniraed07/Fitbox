@@ -16,6 +16,6 @@ requests
 sentencepiece
 tokenizers
 python-dotenv
-# Optional / useful (uncomment if needed):
-# scikit-learn
-# jupyter
+streamlit
+fpdf
+plotly

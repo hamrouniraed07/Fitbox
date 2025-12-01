@@ -11,10 +11,10 @@ from pathlib import Path
 
 
 class ModelConfig:
-    """Configuration du modèle Phi-3-mini"""
-    
-    # Modèle recommandé pour vos ressources
-    MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
+    """Configuration du modèle llama3.2 (via Ollama local)"""
+
+    # Modèle recommandé pour vos ressources (maintenant via Ollama)
+    MODEL_NAME = "llama3.2:latest"  # Utilisé avec Ollama local
     
     # Configuration quantization 4-bit pour économiser VRAM
     QUANTIZATION_CONFIG = BitsAndBytesConfig(
@@ -179,7 +179,7 @@ Inclus:
             user_request = user_profile.get('custom_request', 
                 "Donne-moi des conseils généraux pour atteindre mon objectif.")
         
-        # Assembler le prompt (format Phi-3)
+       
         prompt = f"""<|system|>
 {system_message}<|end|>
 <|user|>
@@ -349,7 +349,7 @@ def main():
     manager = FitBoxModelManager()
     
     # Charger le modèle
-    print("\n📦 Étape 1: Chargement du modèle Phi-3-mini")
+    print("\n📦 Étape 1: Chargement du modèle llama3.2 via Ollama")
     print("-" * 60)
     success = manager.load_model(use_quantization=True)
     

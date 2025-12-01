@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 import os
 import glob
+import requests
 
 
 app = Flask(__name__)
@@ -60,6 +61,17 @@ class FitBoxBackend:
         self.tokenizer = None
         self.calculator = PhysiologicalCalculator()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Ollama Cloud config (optionnel). Expect full URL like 'https://cloud.ollama.com/api/generate'
+        self.ollama_api_url = os.environ.get('OLLAMA_API_URL')
+        self.ollama_api_key = os.environ.get('OLLAMA_API_KEY')
+        # par défaut utiliser Llama3.2 si vous avez un serveur ollama local
+        self.ollama_model_name = os.environ.get('OLLAMA_MODEL_NAME', 'llama3.2:latest')
+        # Si OLLAMA_API_URL est défini => cloud; sinon, si OLLAMA_LOCAL=1 alors utiliser le serveur local par défaut
+        self.ollama_local = os.environ.get('OLLAMA_LOCAL', os.environ.get('USE_OLLAMA_LOCAL', '1')) not in ('0', 'false', 'False', '')
+        if not self.ollama_api_url and self.ollama_local:
+            # endpoint local par défaut
+            self.ollama_api_url = os.environ.get('OLLAMA_LOCAL_URL', 'http://127.0.0.1:11434/api/generate')
+        self.use_ollama = bool(self.ollama_api_url)
         self.conversations = {}
         
         print(f"🖥️  Device: {self.device}")
@@ -67,6 +79,14 @@ class FitBoxBackend:
     def load_model(self):
         """Charge le modèle fine-tuné"""
         print(f"📦 Chargement du modèle depuis {self.model_path}...")
+
+        # Si la configuration Ollama est fournie, on active le mode Ollama Cloud
+        if self.use_ollama:
+            print(f"🌩️  Mode Ollama activé — enverra les prompts vers: {self.ollama_api_url} (modèle: {self.ollama_model_name})")
+            if not self.ollama_api_key:
+                print("⚠️  Aucune clé OLLAMA_API_KEY trouvée dans l'environnement — vous aurez probablement une erreur d'authentification lors des requêtes")
+            # Pas d'autres charges locales à faire
+            return True
 
         # Vérifier l'existence du dossier et la présence de fichiers attendus
         try:
@@ -121,7 +141,7 @@ class FitBoxBackend:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
                 base_model = AutoModelForCausalLM.from_pretrained(
-                    "microsoft/Phi-3-mini-4k-instruct",
+                    "meta-llama/Llama-3.2-3B-Instruct",
                     device_map="auto",
                     torch_dtype=torch.float16,
                     trust_remote_code=True,
@@ -139,15 +159,16 @@ class FitBoxBackend:
                 print("⚠️  Tentative d'utilisation du modèle de base sans fine-tuning")
 
                 try:
-                    # Tentative de chargement du modèle de base (fallback)
+                    # Tentative de chargement du modèle de base (fallback - not recommended)
+                    # Since we prioritize Ollama, this fallback is kept for compatibility only
                     self.tokenizer = AutoTokenizer.from_pretrained(
-                        "microsoft/Phi-3-mini-4k-instruct",
+                        "meta-llama/Llama-3.2-3B-Instruct",  # Fallback only
                         trust_remote_code=True
                     )
                     self.tokenizer.pad_token = self.tokenizer.eos_token
 
                     self.model = AutoModelForCausalLM.from_pretrained(
-                        "microsoft/Phi-3-mini-4k-instruct",
+                        "meta-llama/Llama-3.2-3B-Instruct",  # Fallback only
                         device_map="auto",
                         torch_dtype=torch.float16,
                         trust_remote_code=True,
@@ -222,6 +243,100 @@ Réponds de manière concise et actionable.<|end|>
     
     def generate_response(self, prompt: str, max_tokens: int = 400, temperature: float = 0.7) -> str:
         """Génère une réponse du modèle (VERSION CORRIGÉE)"""
+        # Si on est en mode Ollama, déléguer la génération à l'API HTTP
+        if self.use_ollama:
+            try:
+                payload = {
+                    "model": self.ollama_model_name,
+                    "prompt": prompt,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
+                }
+                headers = {"Content-Type": "application/json"}
+                if self.ollama_api_key:
+                    headers["Authorization"] = f"Bearer {self.ollama_api_key}"
+
+                resp = requests.post(self.ollama_api_url, json=payload, headers=headers, timeout=60)
+                # Try parsing as JSON first
+                try:
+                    j = resp.json()
+                except Exception:
+                    text = resp.text
+                    # Ollama may stream NDJSON or return concatenated JSON objects.
+                    # Try to split into lines and parse each JSON object.
+                    responses = []
+                    parsed_any = False
+                    # Normalize separators '}{' -> '}\n{'
+                    normalized = text.replace('}{', '}\n{')
+                    for line in normalized.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                            parsed_any = True
+                            # collect common fields
+                            if isinstance(obj, dict):
+                                if 'response' in obj and obj['response']:
+                                    responses.append(str(obj['response']))
+                                elif 'text' in obj and obj['text']:
+                                    responses.append(str(obj['text']))
+                                else:
+                                    # try to extract nested output list
+                                    out = obj.get('output') or obj.get('results')
+                                    if isinstance(out, list) and len(out) > 0:
+                                        first = out[0]
+                                        if isinstance(first, dict) and 'text' in first:
+                                            responses.append(str(first['text']))
+                                        elif isinstance(first, str):
+                                            responses.append(first)
+                        except Exception:
+                            # ignore lines that are not JSON
+                            continue
+
+                    if parsed_any and responses:
+                        # join pieces into a single response text
+                        return ' '.join(responses).strip()
+
+                    # As a last resort try a simple regex-like extraction for "response":"..."
+                    try:
+                        import re
+                        matches = re.findall(r'"response"\s*:\s*"(.*?)"', text)
+                        if matches:
+                            return ' '.join(matches).strip()
+                    except Exception:
+                        pass
+
+                    # If nothing matched, return a shorter debug message (avoid huge dumps)
+                    snippet = text[:2000] + ('...' if len(text) > 2000 else '')
+                    return f"Erreur Ollama: réponse non JSON (status {resp.status_code}). Raw (tronc): {snippet}"
+
+                # If we got valid JSON object, parse common shapes
+                # 1) direct text fields
+                if isinstance(j, dict):
+                    if 'response' in j and j['response']:
+                        return j['response']
+                    if 'text' in j and j['text']:
+                        return j['text']
+                    # 2) output/results arrays
+                    out = j.get('output') or j.get('results') or j.get('result')
+                    if isinstance(out, list) and len(out) > 0:
+                        first = out[0]
+                        if isinstance(first, dict) and 'text' in first:
+                            return first['text']
+                        if isinstance(first, str):
+                            return first
+
+                # Fallback: serialize JSON briefly
+                try:
+                    short = json.dumps(j)
+                    return short
+                except Exception:
+                    return str(j)
+
+            except Exception as e:
+                return f"Erreur lors de la requête Ollama: {e}"
+
         if self.model is None:
             return "Erreur: Le modèle n'est pas chargé."
         
