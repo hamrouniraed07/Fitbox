@@ -10,11 +10,6 @@ from fpdf import FPDF
 st.set_page_config(page_title="FitBox", layout="wide")
 
 
-"""
-Restored Streamlit frontend for FitBox.
-This file was recovered from the repo history after removing the React/Vite frontend.
-"""
-
 
 # --- Styles and header banner ---
 st.markdown("""
@@ -322,7 +317,7 @@ class FitBoxFrontend:
             st.error("⏱️ Le serveur prend trop de temps à répondre. La génération IA peut être lente. Veuillez réessayer.")
             return None
         except requests.exceptions.ConnectionError:
-            st.error("❌ Impossible de se connecter au serveur. Vérifiez que le backend est lancé sur http://localhost:5000")
+            st.error("Impossible de se connecter au serveur. Vérifiez que le backend est lancé sur http://localhost:5000")
             return None
         except Exception as e:
             st.error(f"Erreur: {e}")
@@ -373,14 +368,13 @@ class FitBoxFrontend:
 
 def render_header():
     """Affiche l'en-tête de l'application avec un design moderne"""
-    st.markdown('<h1 class="gradient-text">🏋️ FitBox</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Votre Coach Sportif Intelligent Propulsé par l\'IA</p>', unsafe_allow_html=True)
+    st.markdown('<h1 class="gradient-text">FitBox</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Votre coach sportif intelligent propulsé par l\'IA</p>', unsafe_allow_html=True)
 
 
 def render_profile_form(frontend):
     """Affiche le formulaire de profil avec un design moderne"""
-    st.sidebar.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-    st.sidebar.header("👤 Votre Profil")
+    st.sidebar.header("Profil")
 
     with st.sidebar.form("profile_form"):
         age = st.number_input("Âge", min_value=15, max_value=100, value=25)
@@ -403,11 +397,11 @@ def render_profile_form(frontend):
                 "extra_active"
             ],
             format_func=lambda x: {
-                "sedentary": "🪑 Sédentaire",
-                "lightly_active": "🚶 Légèrement actif",
-                "moderately_active": "🏃 Modérément actif",
-                "very_active": "💪 Très actif",
-                "extra_active": "🔥 Extrêmement actif"
+                "sedentary": "Sédentaire",
+                "lightly_active": "Légèrement actif",
+                "moderately_active": "Modérément actif",
+                "very_active": "Très actif",
+                "extra_active": "Extrêmement actif"
             }[x]
         )
         
@@ -421,15 +415,15 @@ def render_profile_form(frontend):
                 "bulking"
             ],
             format_func=lambda x: {
-                "weight_loss": "📉 Perte de poids",
-                "moderate_weight_loss": "📊 Perte de poids modérée",
-                "maintenance": "⚖️ Maintien",
-                "muscle_gain": "💪 Prise de masse",
-                "bulking": "🔥 Prise de masse importante"
+                "weight_loss": "Perte de poids",
+                "moderate_weight_loss": "Perte de poids modérée",
+                "maintenance": "Maintien",
+                "muscle_gain": "Prise de masse",
+                "bulking": "Prise de masse importante"
             }[x]
         )
         
-        submitted = st.form_submit_button("🚀 Calculer mon profil", width='stretch')
+        submitted = st.form_submit_button("Calculer mon profil", width='stretch')
         
         if submitted:
             user_data = {
@@ -447,10 +441,10 @@ def render_profile_form(frontend):
                 if result and result.get("success"):
                     st.session_state.profile = result["profile"]
                     st.session_state.user_data = user_data
-                    st.success("✅ Profil calculé avec succès!")
+                    st.success("Profil calculé avec succès!")
                     st.rerun()
                 else:
-                    st.error("❌ Erreur lors du calcul du profil")
+                    st.error("Erreur lors du calcul du profil")
 
 
 def render_profile_stats():
@@ -458,7 +452,7 @@ def render_profile_stats():
     if not st.session_state.profile:
         st.markdown("""
         <div class="glass-card">
-            <h3 style="color: white; text-align: center;">📊 Découvrez votre profil</h3>
+            <h3 style="color: white; text-align: center;">Découvrez votre profil</h3>
             <p style="color: rgba(255,255,255,0.8); text-align: center;">
                 Remplissez le formulaire dans la barre latérale pour voir vos statistiques personnalisées.
             </p>
@@ -471,7 +465,7 @@ def render_profile_stats():
     # En-tête du profil avec style
     st.markdown("""
     <div class="glass-card">
-        <h2 style="color: white; text-align: center; margin-bottom: 10px;">📊 Votre Profil Physiologique</h2>
+        <h2 style="color: white; text-align: center; margin-bottom: 10px;"> Votre Profil Physiologique</h2>
         <p style="color: rgba(255,255,255,0.8); text-align: center; font-size: 1.1em;">
             Analyse complète de vos besoins nutritionnels et métaboliques
         </p>
@@ -542,7 +536,7 @@ def render_chat_interface(frontend):
     if not st.session_state.profile:
         st.markdown("""
         <div class="glass-card">
-            <h3 style="color: white; text-align: center;">💬 Prêt à discuter avec votre coach ?</h3>
+            <h3 style="color: white; text-align: center;">Prêt à discuter avec votre coach ?</h3>
             <p style="color: rgba(255,255,255,0.8); text-align: center;">
                 Complétez d'abord votre profil dans la barre latérale pour commencer une conversation personnalisée.
             </p>
@@ -550,23 +544,23 @@ def render_chat_interface(frontend):
         """, unsafe_allow_html=True)
         return
 
-    st.markdown("## 💬 Chat avec FitBox")
+    st.markdown("## Chat avec FitBox")
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
     if not st.session_state.chat_history:
-        st.markdown("""
-        <div class="bot-message">
-            <strong>🤖 FitBox:</strong><br>
-            Bonjour ! Je suis votre coach sportif IA. Je peux vous aider avec :
-            <br>• Programmes d'entraînement personnalisés
-            <br>• Plans nutritionnels adaptés
-            <br>• Conseils de motivation et suivi
-            <br>• Réponses à toutes vos questions fitness
-            <br><br>
-            Que souhaitez-vous savoir aujourd'hui ?
-        </div>
-        <div style='clear: both;'></div>
-        """, unsafe_allow_html=True)
+            st.markdown("""
+            <div class="bot-message">
+                <strong>FitBox:</strong><br>
+                Bonjour ! Je suis votre coach sportif IA. Je peux vous aider avec :
+                <br>• Programmes d'entraînement personnalisés
+                <br>• Plans nutritionnels adaptés
+                <br>• Conseils de motivation et suivi
+                <br>• Réponses à vos questions fitness
+                <br><br>
+                Que souhaitez-vous savoir aujourd'hui ?
+            </div>
+            <div style='clear: both;'></div>
+            """, unsafe_allow_html=True)
     else:
         for msg in st.session_state.chat_history:
             st.markdown(f"""
@@ -576,7 +570,7 @@ def render_chat_interface(frontend):
             """, unsafe_allow_html=True)
             st.markdown(f"""
             <div class="bot-message">
-                <strong>🤖 FitBox:</strong><br>{msg['bot']}
+                <strong>FitBox:</strong><br>{msg['bot']}
             </div>
             """, unsafe_allow_html=True)
             st.markdown("<div style='clear: both;'></div>", unsafe_allow_html=True)
@@ -589,23 +583,23 @@ def render_chat_interface(frontend):
 
     col1, col2, col3 = st.columns([3,1,1])
     with col1:
-        send_button = st.button("📤 Envoyer", use_container_width=True, type="primary")
+        send_button = st.button("Envoyer", use_container_width=True, type="primary")
     with col2:
-        if st.button("🗑️ Effacer", use_container_width=True):
+        if st.button("Effacer", use_container_width=True):
             st.session_state.chat_history = []
             st.rerun()
     with col3:
-        if st.button("📊 Stats", use_container_width=True):
+        if st.button("Stats", use_container_width=True):
             st.session_state.show_chat_stats = not st.session_state.get('show_chat_stats', False)
 
     if send_button and user_input.strip():
-        with st.spinner("FitBox réfléchit... 🤔"):
+        with st.spinner("Génération en cours..."):
             response = frontend.send_message(user_input.strip(), st.session_state.user_data)
             if response:
                 st.session_state.chat_history.append({"user": user_input.strip(), "bot": response, "timestamp": datetime.now().isoformat()})
                 st.rerun()
             else:
-                st.error("❌ Erreur lors de l'envoi du message")
+                st.error("Erreur lors de l'envoi du message")
 
 
 def generate_pdf_report():
@@ -658,7 +652,7 @@ def render_export_section():
     if not st.session_state.profile:
         st.markdown("""
         <div class="glass-card">
-            <h3 style="color: white; text-align: center;">📄 Exportez vos données</h3>
+            <h3 style="color: white; text-align: center;">Exportez vos données</h3>
             <p style="color: rgba(255,255,255,0.8); text-align: center;">
                 Calculez d'abord votre profil pour pouvoir exporter vos données.
             </p>
@@ -666,43 +660,43 @@ def render_export_section():
         """, unsafe_allow_html=True)
         return
 
-    st.markdown("## 📄 Export de Votre Profil")
+    st.markdown("## Export de Votre Profil")
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("📥 Télécharger PDF", use_container_width=True, type="primary"):
+        if st.button("Télécharger PDF", use_container_width=True, type="primary"):
             pdf_path = generate_pdf_report()
             if pdf_path:
                 with open(pdf_path, "rb") as f:
                     st.download_button("⬇️ Télécharger le rapport", f, file_name=pdf_path, mime="application/pdf", use_container_width=True)
-                    st.success("✅ Rapport PDF généré avec succès !")
+                    st.success("Rapport PDF généré avec succès !")
     with col2:
-        if st.button("💾 Télécharger JSON", use_container_width=True):
+        if st.button("Télécharger JSON", use_container_width=True):
             json_data = json.dumps(st.session_state.profile, indent=2, ensure_ascii=False)
             filename = f"fitbox_profile_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             st.download_button("⬇️ Télécharger JSON", json_data, file_name=filename, mime="application/json", use_container_width=True)
-            st.info("✅ Données JSON prêtes au téléchargement")
+            st.info("Données JSON prêtes au téléchargement")
     with col3:
-        if st.button("📊 Exporter Chat", use_container_width=True):
+        if st.button("Exporter Chat", use_container_width=True):
             if st.session_state.chat_history:
                 chat_data = {"export_date": datetime.now().isoformat(), "total_messages": len(st.session_state.chat_history), "conversation_history": st.session_state.chat_history, "user_profile": st.session_state.user_data}
                 chat_json = json.dumps(chat_data, indent=2, ensure_ascii=False)
                 filename = f"fitbox_chat_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 st.download_button("⬇️ Télécharger l'historique", chat_json, file_name=filename, mime="application/json", use_container_width=True)
-                st.success("✅ Historique de chat exporté !")
+                st.success("Historique de chat exporté !")
 
 
 def main():
     frontend = FitBoxFrontend()
     render_header()
     if not frontend.check_api_health():
-        st.error("❌ Impossible de se connecter à l'API backend. Assurez-vous qu'elle est lancée sur http://localhost:5000")
-        st.info("💡 Lancez l'API avec: `python backend/backend_api.py`")
+        st.error("Impossible de se connecter à l'API backend. Assurez-vous qu'elle est lancée sur http://localhost:5000")
+        st.info("Lancez l'API avec: `python backend/backend_api.py`")
         return
     else:
-        st.sidebar.success("✅ API connectée")
+        st.sidebar.success("API connectée")
 
     render_profile_form(frontend)
-    tab1, tab2, tab3 = st.tabs(["📊 Mon Profil", "💬 Chat", "📥 Export"])
+    tab1, tab2, tab3 = st.tabs(["Mon Profil", "Chat", "Export"])
     with tab1:
         render_profile_stats()
     with tab2:

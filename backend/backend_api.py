@@ -54,6 +54,7 @@ class FitBoxBackend:
         self.tokenizer = None
         self.calculator = PhysiologicalCalculator()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model_loaded = False
         # Ollama Cloud config (optionnel). Expect full URL like 'https://cloud.ollama.com/api/generate'
         self.ollama_api_url = os.environ.get('OLLAMA_API_URL')
         self.ollama_api_key = os.environ.get('OLLAMA_API_KEY')
@@ -124,53 +125,93 @@ class FitBoxBackend:
                     print("Fichiers attendus: config.json, pytorch_model.bin, *.safetensors, adapter_config.json, adapter_model.bin")
                     print("Si vous avez un adapter LoRA local, copiez ses fichiers ici. Sinon, fournissez un chemin vers un modèle HuggingFace valide.")
                     return False
+            # If we have adapter files (LoRA) -> try to load adapter over a base model
+            adapter_patterns = [str(self.model_path / p) for p in ("adapter_model.bin", "adapter_config.json")]
+            adapter_exists = any(glob.glob(p) for p in adapter_patterns)
 
-            # Tentative de chargement: tokenizer depuis le dossier local (si disponible)
+            # Try to read base model name from model_config.json if present
+            base_model_name = None
+            if mc_path.exists():
+                try:
+                    cfg = json.load(open(mc_path, 'r', encoding='utf-8'))
+                    base_model_name = cfg.get('base_model') or cfg.get('base_model_name') or cfg.get('model_name') or cfg.get('model')
+                    if base_model_name:
+                        print(f"ℹ️  model_config.json indique le modèle de base: {base_model_name}")
+                except Exception:
+                    pass
+
+            # Fallback to environment var or default HF base
+            if not base_model_name:
+                base_model_name = os.environ.get('FITBOX_BASE_MODEL', 'meta-llama/Llama-3.2-3B-Instruct')
+
+            # If adapter detected, attempt adapter load path
+            if adapter_exists:
+                print(f"🔎 Adapter LoRA détecté dans {self.model_path} — chargement via PEFT")
+                try:
+                    # Load tokenizer: prefer adapter dir tokenizer if present, else base tokenizer
+                    try:
+                        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+                        print("ℹ️  Tokenizer chargé depuis le dossier adapter local")
+                    except Exception:
+                        self.tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
+                        print(f"ℹ️  Tokenizer chargé depuis le modèle de base: {base_model_name}")
+
+                    # Load base model (may be large) and then apply adapter
+                    print(f"📥 Chargement du modèle de base ({base_model_name}) pour appliquer l'adapter LoRA...")
+                    base_model = AutoModelForCausalLM.from_pretrained(
+                        base_model_name,
+                        device_map="auto",
+                        torch_dtype=torch.float16 if self.device == 'cuda' else torch.float32,
+                        trust_remote_code=True,
+                    )
+
+                    print("🔗 Application de l'adapter PEFT...")
+                    self.model = PeftModel.from_pretrained(base_model, self.model_path)
+                    self.model.eval()
+                    self.model_loaded = True
+                    print("✅ Modèle chargé avec succès (adapter LoRA appliqué)!")
+                    return True
+                except Exception as e:
+                    print(f"❌ Erreur lors du chargement de l'adapter local: {e}")
+                    print("⚠️  Échec du chargement de l'adapter — tentative de chargement direct du dossier comme modèle complet.")
+
+            # If adapter wasn't used or failed, try to load a full model from the folder directly
             try:
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_path,
-                    trust_remote_code=True
-                )
+                print(f"📥 Tentative de chargement direct d'un modèle complet depuis {self.model_path}...")
+                self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
-                base_model = AutoModelForCausalLM.from_pretrained(
-                    "meta-llama/Llama-3.2-3B-Instruct",
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path,
                     device_map="auto",
-                    torch_dtype=torch.float16,
+                    torch_dtype=torch.float16 if self.device == 'cuda' else torch.float32,
                     trust_remote_code=True,
                 )
-
-                # Charger l'adapter LoRA local
-                self.model = PeftModel.from_pretrained(base_model, self.model_path)
-                self.model.eval()
-
-                print("✅ Modèle chargé avec succès (avec adapter local)!")
+                self.model_loaded = True
+                print("✅ Modèle local complet chargé avec succès!")
                 return True
+            except Exception as e_full:
+                print(f"❌ Échec du chargement direct depuis le dossier: {e_full}")
+                print("⚠️  Aucune donnée de modèle utilisable trouvée localement. Le backend peut utiliser Ollama si configuré.")
 
-            except Exception as e:
-                print(f"❌ Erreur lors du chargement de l'adapter local: {e}")
-                print("⚠️  Tentative d'utilisation du modèle de base sans fine-tuning")
-
+                # Final fallback: try to load a small base model from HF (not recommended)
                 try:
-                    # Tentative de chargement du modèle de base (fallback - not recommended)
-                    # Since we prioritize Ollama, this fallback is kept for compatibility only
-                    self.tokenizer = AutoTokenizer.from_pretrained(
-                        "meta-llama/Llama-3.2-3B-Instruct",  # Fallback only
-                        trust_remote_code=True
-                    )
+                    print(f"🔁 Tentative de fallback: chargement du modèle de base {base_model_name} depuis le hub (peut télécharger de gros poids)...")
+                    self.tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
                     self.tokenizer.pad_token = self.tokenizer.eos_token
 
                     self.model = AutoModelForCausalLM.from_pretrained(
-                        "meta-llama/Llama-3.2-3B-Instruct",  # Fallback only
+                        base_model_name,
                         device_map="auto",
-                        torch_dtype=torch.float16,
+                        torch_dtype=torch.float16 if self.device == 'cuda' else torch.float32,
                         trust_remote_code=True,
                     )
+                    self.model_loaded = True
+                    print("✅ Modèle de base chargé depuis le hub (fallback).")
                     return True
-
                 except Exception as e2:
-                    print(f"❌ Échec du chargement de secours du modèle de base: {e2}")
-                    print("Conseils: installez 'bitsandbytes' pour quantification 4-bit, augmentez la mémoire GPU, ou exécutez en CPU.")
+                    print(f"❌ Échec du fallback depuis le hub: {e2}")
+                    print("Conseils: installez 'bitsandbytes' pour quantification 4-bit, augmentez la mémoire GPU, ou exécutez en CPU. Ou utilisez Ollama pour l'inférence.")
                     return False
 
         except Exception as e:
@@ -222,20 +263,84 @@ DONNÉES PHYSIOLOGIQUES:
                 history_text += f"User: {item['user']}\nAssistant: {item['assistant']}\n\n"
         
         prompt = f"""<|system|>
-Tu es FitBox, un coach sportif et nutritionniste expert virtuel. 
-Tu fournis des conseils personnalisés, motivants et basés sur la science.
-Réponds de manière concise et actionable.<|end|>
-<|user|>
-{context}
-{history_text}
-{message}<|end|>
-<|assistant|>
-"""
+    Tu es FitBox, un coach sportif et nutritionniste expert virtuel. 
+    Tu fournis des conseils personnalisés, motivants et basés sur la science.
+    Réponds de manière concise et actionable.
+    FORMAT INSTRUCTIONS FOR OUTPUT:
+    - Réponds en français clair et naturel.
+    - Utilise des phrases courtes et simples.
+    - Structure la réponse avec des titres et des listes à puces lorsqu'il y a des étapes ou items.
+    - N'utilise pas de balises de style brutales (évite les `**gras**` non nécessaires) et évite de scinder les mots.
+    - Ne renvoie pas de métadonnées internes ou de tokens spéciaux (ex: `<|assistant|>`).
+    <|end|>
+    <|user|>
+    {context}
+    {history_text}
+    {message}<|end|>
+    <|assistant|>
+    """
         
         return prompt
     
     def generate_response(self, prompt: str, max_tokens: int = 400, temperature: float = 0.7) -> str:
         """Génère une réponse du modèle (VERSION CORRIGÉE)"""
+        def postprocess_response(text: str) -> str:
+            """Nettoyage simple et conservateur des artefacts fréquents issus des generations.
+
+            - retire les marqueurs Markdown gras (`**`), underscores inutiles
+            - normalise les espaces multiples
+            - corrige les espaces erronés autour des apostrophes et ponctuation
+            - applique une normalisation unicode
+            """
+            try:
+                import re
+                import unicodedata
+
+                # Normalisation unicode (préserve accents propres)
+                text = unicodedata.normalize('NFKC', text)
+
+                # Retirer les balises de mise en forme explicites comme **bold** ou __underline__
+                text = re.sub(r"\*\*(.*?)\*\*", r"\1", text, flags=re.S)
+                text = re.sub(r"__(.*?)__", r"\1", text, flags=re.S)
+
+                # Supprimer étoiles isolées et triples backticks
+                text = text.replace('`', '')
+                text = text.replace('•', '-')
+
+                # Supprimer séquences répétées d'astérisques ou de tirets
+                text = re.sub(r"\*{2,}", '', text)
+                text = re.sub(r"-{3,}", '---', text)
+
+                # Supprimer espaces multiples
+                text = re.sub(r"[ \t\xa0]{2,}", ' ', text)
+
+                # Corriger espace avant ponctuation (.,;:!?) -> enlevez l'espace précédant
+                text = re.sub(r"\s+([.,;:!\?%])", r"\1", text)
+
+                # Corriger espaces autour d'apostrophes (l ' exemple -> l')
+                text = re.sub(r"\s+'\s*", "'", text)
+
+                # Corriger espace après ouverture de parenthèse
+                text = re.sub(r"\(\s+", '(', text)
+                text = re.sub(r"\s+\)", ')', text)
+
+                # Collapser plus d'un saut de ligne en au plus deux
+                text = re.sub(r"\n{3,}", '\n\n', text)
+
+                # Corriger cas où le modèle a inséré des espaces entre lettres au sein d'un même mot
+                # Exemple: "p r o g r a m m e" ou "ent ra în ement" -> "programme", "entraînement"
+                def _collapse_spaced_letters(match):
+                    s = match.group(0)
+                    return s.replace(' ', '')
+
+                # Cherche séquences de lettres séparées par des espaces répétées (au moins 3 lettres espacées)
+                text = re.sub(r"(?:(?:[A-Za-zÀ-ÖØ-öø-ÿ]\s){2,}[A-Za-zÀ-ÖØ-öø-ÿ])", _collapse_spaced_letters, text)
+                text = text.strip()
+
+                return text
+            except Exception:
+                return text
+
         # Si on est en mode Ollama, déléguer la génération à l'API HTTP
         if self.use_ollama:
             try:
@@ -288,47 +393,46 @@ Réponds de manière concise et actionable.<|end|>
                             continue
 
                     if parsed_any and responses:
-                        # join pieces into a single response text
-                        return ' '.join(responses).strip()
+                        # join pieces into a single response text and postprocess
+                        return postprocess_response(' '.join(responses).strip())
 
                     # As a last resort try a simple regex-like extraction for "response":"..."
                     try:
                         import re
                         matches = re.findall(r'"response"\s*:\s*"(.*?)"', text)
                         if matches:
-                            return ' '.join(matches).strip()
+                            return postprocess_response(' '.join(matches).strip())
                     except Exception:
                         pass
 
                     # If nothing matched, return a shorter debug message (avoid huge dumps)
                     snippet = text[:2000] + ('...' if len(text) > 2000 else '')
-                    return f"Erreur Ollama: réponse non JSON (status {resp.status_code}). Raw (tronc): {snippet}"
+                    return postprocess_response(f"Erreur Ollama: réponse non JSON (status {resp.status_code}). Raw (tronc): {snippet}")
 
-                # If we got valid JSON object, parse common shapes
-                # 1) direct text fields
+                # If we got valid JSON object, parse common shapes and postprocess
                 if isinstance(j, dict):
                     if 'response' in j and j['response']:
-                        return j['response']
+                        return postprocess_response(j['response'])
                     if 'text' in j and j['text']:
-                        return j['text']
+                        return postprocess_response(j['text'])
                     # 2) output/results arrays
                     out = j.get('output') or j.get('results') or j.get('result')
                     if isinstance(out, list) and len(out) > 0:
                         first = out[0]
                         if isinstance(first, dict) and 'text' in first:
-                            return first['text']
+                            return postprocess_response(first['text'])
                         if isinstance(first, str):
-                            return first
+                            return postprocess_response(first)
 
-                # Fallback: serialize JSON briefly
+                # Fallback: serialize JSON briefly and postprocess
                 try:
                     short = json.dumps(j)
-                    return short
+                    return postprocess_response(short)
                 except Exception:
-                    return str(j)
+                    return postprocess_response(str(j))
 
             except Exception as e:
-                return f"Erreur lors de la requête Ollama: {e}"
+                return postprocess_response(f"Erreur lors de la requête Ollama: {e}")
 
         if self.model is None:
             return "Erreur: Le modèle n'est pas chargé."
@@ -351,11 +455,11 @@ Réponds de manière concise et actionable.<|end|>
                 )
             
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            
+
             if "<|assistant|>" in response:
                 response = response.split("<|assistant|>")[-1].strip()
-            
-            return response
+
+            return postprocess_response(response)
             
         except Exception as e:
             return f"Erreur lors de la génération: {str(e)}"
