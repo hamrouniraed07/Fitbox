@@ -685,26 +685,132 @@ def render_export_section():
                 st.success("Historique de chat exporté !")
 
 
+# -- Mouvements module (offline-capable) ---------------------------------
+MOVEMENTS = {
+    "squat": {
+        "name": "Squat",
+        "images": [
+            "https://imgs.search.brave.com/3vFMoI0qbJSyASBZdxER-VZvkmBO15CXaKBRx9l3KB4/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvMTM2/MTc2MDU1MC9waG90/by93b21hbi1pbi1h/LW1vcm5pbmctc3F1/YXQtd29ya291dC5q/cGc_cz02MTJ4NjEy/Jnc9MCZrPTIwJmM9/eC1kd1NqODkzVkdq/UExKWThKYmFjUEpq/Tmpodk5SOGV5SFhs/czVOV2szND0"
+        ],
+        "base_steps": [
+            "Tenez-vous debout, pieds écartés à la largeur des épaules.",
+            "Fléchissez les genoux et poussez les hanches vers l'arrière comme si vous alliez vous asseoir.",
+            "Gardez le dos droit, le regard vers l'avant et les genoux alignés avec les orteils.",
+            "Poussez sur les talons pour revenir debout."
+        ],
+        "safety": [
+            "Ne descendez pas plus bas si vous ressentez une douleur au genou.",
+            "Gardez la poitrine ouverte pour éviter de vous pencher en avant."
+        ],
+        "products": [
+            {"name": "Tapis de gym Decathlon", "url": "https://www.decathlon.fr/tous-les-sports/fitness-cardio-training/tapis-de-sol"}
+        ]
+    },
+    "push_up": {
+        "name": "Pompes",
+        "images": [
+            "https://imgs.search.brave.com/smrS1gwhkQKOdzcNRbjwtjvyo4NP0ufR9smTP1t0YF8/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pbWcu/ZnJlZXBpay5jb20v/ZnJlZS1waG90by9n/b3JnZW91cy13b21h/bi1kb2luZy1wdXNo/dXBzXzIzLTIxNDgy/NjQ4MjkuanBnP3Nl/bXQ9YWlzX2h5YnJp/ZCZ3PTc0MCZxPTgw"
+        ],
+        "base_steps": [
+            "Placez-vous en position planche, mains sous les épaules.",
+            "Fléchissez les coudes pour abaisser le corps, gardez la ligne droite.",
+            "Poussez pour revenir à la position initiale."
+        ],
+        "safety": ["Si douleur aux épaules, réduisez l'amplitude ou faites sur les genoux."],
+        "products": [
+            {"name": "Tapis d'exercice", "url": "https://www.decathlon.fr/tous-les-sports/fitness-cardio-training/tapis-de-sol"}
+        ]
+    },
+    "downward_dog": {
+        "name": "Chien tête en bas (Yoga)",
+        "images": [
+            "https://imgs.search.brave.com/5GNqWRW5Tt-tWKMR3_d0iLK4QqP2VqhlSYhPph37t1c/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/c3BvcnQtZXF1aXBl/bWVudHMuZnIvd3At/Y29udGVudC91cGxv/YWRzLzIwMjQvMDcv/Y2hpZW4tYmFzLXlv/Z2EuanBn"
+        ],
+        "base_steps": [
+            "À quatre pattes, poussez les hanches vers le haut et en arrière pour former un 'V' inversé.",
+            "Poussez les talons vers le sol autant que possible et gardez les mains ancrées.",
+            "Respirez profondément et maintenez la posture 3 à 5 respirations."
+        ],
+        "safety": ["Si douleur au poignet, placez un coussin sous la paume ou évitez la posture."],
+        "products": [
+            {"name": "Tapis de yoga", "url": "https://www.decathlon.fr/tous-les-sports/yoga/tapis-de-yoga"}
+        ]
+    }
+}
+
+
+def tailor_instructions(base_steps, level, injuries, equipment):
+    steps = list(base_steps)
+    if level == "beginner":
+        steps.insert(0, "Commencez par 1 série de faible volume pour apprendre le mouvement.")
+    elif level == "advanced":
+        steps.append("Augmentez l'intensité en ajoutant charge ou répétitions supervisées.")
+
+    if injuries:
+        steps.insert(0, "Attention: adaptez le mouvement en fonction de vos blessures (consultez un professionnel si besoin).")
+
+    if equipment and "mat" in equipment:
+        steps.append("Utilisez un tapis pour protéger vos articulations.")
+    if equipment and "resistance_band" in equipment:
+        steps.append("Utilisez une bande de résistance pour assistance ou surcharge progressive.")
+
+    return steps
+
+
+def render_movement_practice():
+    st.header("Mouvements et Posture")
+    st.write("Choisissez un mouvement et répondez au QCM pour recevoir des instructions adaptées.")
+
+    # QCM
+    level = st.selectbox("Votre niveau", ["beginner", "intermediate", "advanced"], format_func=lambda x: {"beginner":"Débutant","intermediate":"Intermédiaire","advanced":"Avancé"}[x])
+    sports = st.multiselect("Sports pratiqués", ["football","basketball","yoga","running","cycling","none"])
+    injuries = st.checkbox("Avez-vous des douleurs ou blessures ?")
+    equipment = st.multiselect("Équipement disponible", ["mat","resistance_band","none"], default=["mat"])
+
+    movement = st.selectbox("Mouvement", list(MOVEMENTS.keys()), format_func=lambda k: MOVEMENTS[k]['name'])
+    if st.button("Afficher les instructions"):
+        data = MOVEMENTS[movement]
+        steps = tailor_instructions(data['base_steps'], level, injuries, equipment)
+
+        st.subheader("Instructions")
+        for i, s in enumerate(steps, 1):
+            st.markdown(f"**Étape {i}**: {s}")
+
+        st.subheader("Conseils de sécurité")
+        for s in data.get('safety', []):
+            st.write(f"- {s}")
+
+        st.subheader("Illustrations")
+        for img in data.get('images', []):
+            st.image(img, width=420)
+
+        st.subheader("Produits liés")
+        for p in data.get('products', []):
+            st.markdown(f"- [{p['name']}]({p['url']})")
+
+
 def main():
     frontend = FitBoxFrontend()
     render_header()
-    if not frontend.check_api_health():
-        st.error("Impossible de se connecter à l'API backend. Assurez-vous qu'elle est lancée sur http://localhost:5000")
-        st.info("Lancez l'API avec: `python backend/backend_api.py`")
-        return
+
+    api_ok = frontend.check_api_health()
+    if not api_ok:
+        st.warning("⚠️ API backend non disponible — certaines fonctions réseau seront désactivées, mais le module 'Mouvements' fonctionne localement.")
+        st.sidebar.warning("API indisponible")
     else:
         st.sidebar.success("API connectée")
 
     render_profile_form(frontend)
-    tab1, tab2, tab3 = st.tabs(["Mon Profil", "Chat", "Export"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Mon Profil", "Chat", "Export", "Mouvements"])
     with tab1:
         render_profile_stats()
     with tab2:
         render_chat_interface(frontend)
     with tab3:
         render_export_section()
+    with tab4:
+        render_movement_practice()
     st.markdown("---")
-    st.markdown('<p style="text-align: center; color: white;">Made with ❤️ by Raed Mohamed Amin Hamrouni | École Polytechnique de Sousse</p>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
