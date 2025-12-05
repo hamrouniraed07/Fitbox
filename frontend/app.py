@@ -372,59 +372,55 @@ def render_header():
     st.markdown('<p class="subtitle">Votre coach sportif intelligent propulsé par l\'IA</p>', unsafe_allow_html=True)
 
 
-def render_profile_form(frontend):
-    """Affiche le formulaire de profil avec un design moderne"""
-    st.sidebar.header("Profil")
-
-    with st.sidebar.form("profile_form"):
-        age = st.number_input("Âge", min_value=15, max_value=100, value=25)
-        
-        gender = st.selectbox("Genre", ["Male", "Female"])
-        
+def render_profile_quiz(frontend):
+    """Render the profile quiz as the single main page before profile exists."""
+    st.empty()
+    st.markdown('<div style="max-width:900px;margin:0 auto;">', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align:center;color:white;">Profil - Quiz</h2>', unsafe_allow_html=True)
+    with st.form("profile_form"):
         col1, col2 = st.columns(2)
         with col1:
-            weight = st.number_input("Poids (kg)", min_value=30.0, max_value=300.0, value=75.0, step=0.5)
+            age = st.number_input("Âge", min_value=15, max_value=100, value=25)
+            gender = st.selectbox("Genre", ["Male", "Female"])
+            activity_level = st.selectbox(
+                "Niveau d'activité",
+                [
+                    "sedentary",
+                    "lightly_active",
+                    "moderately_active",
+                    "very_active",
+                    "extra_active"
+                ],
+                format_func=lambda x: {
+                    "sedentary": "Sédentaire",
+                    "lightly_active": "Légèrement actif",
+                    "moderately_active": "Modérément actif",
+                    "very_active": "Très actif",
+                    "extra_active": "Extrêmement actif"
+                }[x]
+            )
         with col2:
+            weight = st.number_input("Poids (kg)", min_value=30.0, max_value=300.0, value=75.0, step=0.5)
             height = st.number_input("Taille (m)", min_value=1.20, max_value=2.50, value=1.75, step=0.01)
-        
-        activity_level = st.selectbox(
-            "Niveau d'activité",
-            [
-                "sedentary",
-                "lightly_active",
-                "moderately_active",
-                "very_active",
-                "extra_active"
-            ],
-            format_func=lambda x: {
-                "sedentary": "Sédentaire",
-                "lightly_active": "Légèrement actif",
-                "moderately_active": "Modérément actif",
-                "very_active": "Très actif",
-                "extra_active": "Extrêmement actif"
-            }[x]
-        )
-        
-        goal = st.selectbox(
-            "Objectif",
-            [
-                "weight_loss",
-                "moderate_weight_loss",
-                "maintenance",
-                "muscle_gain",
-                "bulking"
-            ],
-            format_func=lambda x: {
-                "weight_loss": "Perte de poids",
-                "moderate_weight_loss": "Perte de poids modérée",
-                "maintenance": "Maintien",
-                "muscle_gain": "Prise de masse",
-                "bulking": "Prise de masse importante"
-            }[x]
-        )
-        
-        submitted = st.form_submit_button("Calculer mon profil", width='stretch')
-        
+            goal = st.selectbox(
+                "Objectif",
+                [
+                    "weight_loss",
+                    "moderate_weight_loss",
+                    "maintenance",
+                    "muscle_gain",
+                    "bulking"
+                ],
+                format_func=lambda x: {
+                    "weight_loss": "Perte de poids",
+                    "moderate_weight_loss": "Perte de poids modérée",
+                    "maintenance": "Maintien",
+                    "muscle_gain": "Prise de masse",
+                    "bulking": "Prise de masse importante"
+                }[x]
+            )
+
+        submitted = st.form_submit_button("Calculer mon profil")
         if submitted:
             user_data = {
                 "age": age,
@@ -434,10 +430,8 @@ def render_profile_form(frontend):
                 "activity_level": activity_level,
                 "goal": goal
             }
-            
             with st.spinner("Calcul en cours..."):
                 result = frontend.calculate_profile(user_data)
-                
                 if result and result.get("success"):
                     st.session_state.profile = result["profile"]
                     st.session_state.user_data = user_data
@@ -445,6 +439,7 @@ def render_profile_form(frontend):
                     st.rerun()
                 else:
                     st.error("Erreur lors du calcul du profil")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_profile_stats():
@@ -796,21 +791,40 @@ def main():
     api_ok = frontend.check_api_health()
     if not api_ok:
         st.warning("⚠️ API backend non disponible — certaines fonctions réseau seront désactivées, mais le module 'Mouvements' fonctionne localement.")
-        st.sidebar.warning("API indisponible")
     else:
         st.sidebar.success("API connectée")
 
-    render_profile_form(frontend)
-    tab1, tab2, tab3, tab4 = st.tabs(["Mon Profil", "Chat", "Export", "Mouvements"])
-    with tab1:
-        render_profile_stats()
-    with tab2:
-        render_chat_interface(frontend)
-    with tab3:
-        render_export_section()
-    with tab4:
-        render_movement_practice()
-    st.markdown("---")
+    # If profile not set: show single-page quiz in the main area
+    if not st.session_state.get('profile'):
+        render_profile_quiz(frontend)
+        # show a small note in sidebar
+        with st.sidebar:
+            st.header("Bienvenue")
+            st.write("Complétez le quiz pour débloquer les sections Mon Profil, Chat, Mouvements et Export.")
+    else:
+        # when profile exists, show the full sidebar and tabs
+        with st.sidebar:
+            st.header("Profil")
+            profile = st.session_state.profile
+            st.markdown(f"**Âge**: {profile['user_info']['age']}")
+            st.markdown(f"**Poids**: {profile['user_info']['weight']} kg")
+            st.markdown(f"**Taille**: {profile['user_info']['height']} m")
+            if st.button("Recalculer mon profil"):
+                # clear profile to show quiz again
+                st.session_state.profile = None
+                st.session_state.user_data = {}
+                st.rerun()
+
+        tab1, tab2, tab3, tab4 = st.tabs(["Mon Profil", "Chat", "Export", "Mouvements"])
+        with tab1:
+            render_profile_stats()
+        with tab2:
+            render_chat_interface(frontend)
+        with tab3:
+            render_export_section()
+        with tab4:
+            render_movement_practice()
+        st.markdown("---")
 
 
 if __name__ == "__main__":
