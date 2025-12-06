@@ -1,8 +1,3 @@
-"""
-FitBox - Gestion des Templates de Prompts
-Phase 5 - Étape 5.3
-"""
-
 from typing import Dict, List, Optional
 from enum import Enum
 
