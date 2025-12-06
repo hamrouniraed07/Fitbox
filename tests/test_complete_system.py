@@ -1,8 +1,3 @@
-"""
-FitBox - Script de Test Complet du Système
-Vérifie que toutes les phases sont correctement configurées
-"""
-
 import sys
 import importlib
 from pathlib import Path
