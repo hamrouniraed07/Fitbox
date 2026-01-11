@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-01-10T12:37:44.235718",
+  "validations": {
+    "data_preparation": {
+      "status": "SUCCESS",
+      "profiles": 973,
+      "examples": 2919,
+      "age_range": [
+        

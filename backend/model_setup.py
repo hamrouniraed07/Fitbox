@@ -99,7 +99,7 @@ class FitBoxModelManager:
             
             print("✅ Modèle chargé!")
             
-            # Afficher l'utilisation mémoire
+           
             if self.device == "cuda":
                 memory_allocated = torch.cuda.memory_allocated() / 1e9
                 print(f"\n💾 Mémoire GPU utilisée: {memory_allocated:.2f} GB")
@@ -116,19 +116,7 @@ class FitBoxModelManager:
         physiological_data: dict,
         request_type: str = "workout_plan"
     ) -> str:
-        """
-        Crée un prompt structuré pour le modèle.
         
-        Args:
-            user_profile: Informations utilisateur (âge, genre, poids, etc.)
-            physiological_data: Données calculées (BMI, BMR, TDEE, etc.)
-            request_type: Type de demande ("workout_plan", "nutrition_plan", "general")
-            
-        Returns:
-            Prompt formaté pour le modèle
-        """
-        
-        # Template de base
         system_message = """Tu es FitBox, un coach sportif et nutritionniste expert virtuel. 
 Tu fournis des conseils personnalisés basés sur les données physiologiques de l'utilisateur.
 Tes réponses sont claires, motivantes et basées sur la science du sport."""
