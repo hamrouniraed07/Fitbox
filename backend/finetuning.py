@@ -27,7 +27,7 @@ class FitBoxFineTuner:
     
     def __init__(
         self,
-        model_name: str = "microsoft/phi-2",  # Petit modèle efficace (2.7B) - QLoRA friendly
+        model_name: str = "meta-llama/Llama-2-7b-hf",  # Llama 3.2 ou Llama 2 - QLoRA friendly
         output_dir: str = "models/fitbox_model"
     ):
        
